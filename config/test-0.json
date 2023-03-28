@@ -1,7 +1,7 @@
 {
     "name": "test-0",
     "checkpoint_dir": "checkpoints",
-    "num_models": 1,
+    "num_models": 8,
     "q_lr": 0.5,
     "q_gamma": 0.5,
     "q_epsilon_max": 1.0,
@@ -11,9 +11,18 @@
     "q_target_update_tau": 0.01,
     "train_steps": 10,
     "batch_size": 10,
-    "num_eval": 3,
+    "num_eval": 5,
     "checkpoint_steps": 1000,
     "optimizers": [
+        {
+            "optim_type": "rms_prop",
+            "lr": 1e-4,
+            "eps": 1e-8,
+            "weight_decay": 0,
+            "rms_alpha": 0.99,
+            "rms_momentum": 0,
+            "rms_centered": false
+        },
         {
             "optim_type": "adam",
             "lr": 1e-4,

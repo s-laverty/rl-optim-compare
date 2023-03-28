@@ -25,7 +25,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch_wrapper import TorchWrapper
 
-from project.net import QNet
+from net import QNet
 
 logging.basicConfig(
     format='%(asctime)s %(filename)s [%(levelname)s]: %(message)s',

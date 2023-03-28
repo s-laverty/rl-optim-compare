@@ -184,8 +184,7 @@ def epsilon_greedy(
         return random.choice(range(NUM_ACTIONS))
     net.eval()
     with torch.no_grad():
-        q_values = net(obs)
-    return torch.argmax(q_values).item()
+        return torch.argmax(net(obs)).item()
 
 
 def train_net(

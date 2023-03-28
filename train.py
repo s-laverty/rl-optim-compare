@@ -406,7 +406,6 @@ class Args(argparse.Namespace):
     num_iterations: int
     start_iteration: int
     parallel: bool
-    # clobber: bool
     remove_checkpoints: bool
 
 
@@ -459,12 +458,6 @@ if __name__ == '__main__':
         action='store_true',
         help='Run deep Q learning algorithms in parallel (multiprocessing) rather than in series. Requires more RAM.'
     )
-    # parser.add_argument(
-    #     '-c',
-    #     '--clobber',
-    #     action='store_true',
-    #     help='Do not check for existing checkpoints. Overwrite them if they exist.',
-    # )
     parser.add_argument(
         '-r',
         '--remove-checkpoints',

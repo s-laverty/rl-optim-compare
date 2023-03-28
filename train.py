@@ -120,13 +120,14 @@ def checkpoint_name(rank: int, optim_rank: int) -> pathlib.Path:
 def latest_checkpoint_iteration(config: Config) -> int:
     iteration = -1
     glob_pattern = 'checkpoint_{}_iter_*.pt'.format(config['name'])
-    num_checkpoints = config['num_models'] * len(config['optimizers'])
-    for checkpoint_path in pathlib.Path(config['checkpoint_dir']).iterdir():
-        if (
-            checkpoint_path.match(glob_pattern)
-            and checkpoint_path.joinpath('COMPLETE').exists()
-        ):
-            iteration = max(int(checkpoint_path.name[-4:]), iteration)
+    checkpoint_dir = pathlib.Path(config['checkpoint_dir'])
+    if checkpoint_dir.exists():
+        for checkpoint_path in checkpoint_dir.iterdir():
+            if (
+                checkpoint_path.match(glob_pattern)
+                and checkpoint_path.joinpath('COMPLETE').exists()
+            ):
+                iteration = max(int(checkpoint_path.name[-4:]), iteration)
     return iteration
 
 

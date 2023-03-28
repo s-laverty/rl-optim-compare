@@ -124,10 +124,7 @@ def latest_checkpoint_iteration(config: Config) -> int:
     for checkpoint_path in pathlib.Path(config['checkpoint_dir']).iterdir():
         if (
             checkpoint_path.match(glob_pattern)
-            and (
-                sum(1 for path in checkpoint_path.iterdir() if path.is_file())
-                == num_checkpoints
-            )
+            and checkpoint_path.joinpath('COMPLETE').exists()
         ):
             iteration = max(int(checkpoint_path.name[-4:]), iteration)
     return iteration
@@ -521,6 +518,7 @@ if __name__ == '__main__':
         else:
             for rank in range(config['num_models']):
                 init(config, rank, device)
+        checkpoint_path(config, 0).joinpath('COMPLETE').touch()
 
     # Begin training
     if args.parallel:

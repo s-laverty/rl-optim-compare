@@ -31,7 +31,7 @@ class QNet(nn.Module):
         )
         self.decoder = nn.Linear(hidden_dim, num_actions)
     
-    def forward(self, s: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.scaler is not None:
             x = self.scaler(x)
 

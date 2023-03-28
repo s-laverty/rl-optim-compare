@@ -27,7 +27,11 @@ class TorchWrapper(gym.ObservationWrapper):
         self.batch_dim = batch_dim
 
     def observation(self, observation) -> torch.Tensor:
-        tensor = torch.as_tensor(observation, self.dtype, self.device)
+        tensor = torch.as_tensor(
+            observation,
+            dtype=self.dtype,
+            device=self.device,
+        )
         if self.batch_dim:
             tensor = tensor.unsqueeze(0)
         return tensor

@@ -196,7 +196,7 @@ def train_net(
     policy_net.train()
     target_net.eval()
 
-    # Get batch for training from replay buffer
+    # Get batch for training from replay buffer.
     states, actions, rewards, next_states = zip(*random.sample(
         replay_buffer,
         config['batch_size'],
@@ -214,7 +214,7 @@ def train_net(
     if device is not None:
         next_states = next_states.to(device)
 
-    # Backpropagation
+    # Backpropagation.
     pred_q = policy_net(states).gather(1, actions).squeeze(1)
     next_v = torch.zeros_like(pred_q)
     with torch.no_grad():
@@ -226,7 +226,7 @@ def train_net(
     loss.backward()
     optimizer.step()
 
-    # Soft update target net parameters
+    # Soft update target net parameters.
     target_net_state_dict = target_net.state_dict()
     policy_net_state_dict = policy_net.state_dict()
     for key in target_net_state_dict:
@@ -268,7 +268,7 @@ def deep_q(
     mp_barrier: mp.Barrier | None = None,
 ) -> None:
     name = checkpoint_name(rank, optim_rank)
-    # Load previous checkpoint
+    # Load previous checkpoint.
     (
         num_steps,
         policy_net_state_dict,
@@ -281,7 +281,7 @@ def deep_q(
         device if map_replay_buffer else 'cpu',
     )
 
-    # Initialize neural nets
+    # Initialize neural nets.
     policy_net = QNet(OBS_SHAPE, NUM_ACTIONS)
     target_net = QNet(OBS_SHAPE, NUM_ACTIONS)
     policy_net.load_state_dict(policy_net_state_dict)
@@ -292,7 +292,7 @@ def deep_q(
     optimizer = init_optim(config['optimizers'][optim_rank], policy_net)
     optimizer.load_state_dict(optimizer_state_dict)
 
-    # Initialize environment
+    # Initialize environment.
     train_env = TorchWrapper(
         gym.make('CartPole-v1'),
         device=device if map_replay_buffer else 'cpu',
@@ -303,19 +303,19 @@ def deep_q(
         batch_dim=True,
     )
 
-    # Set training counter (neural net update very config['train_steps'])
+    # Set training counter (neural net update very config['train_steps']).
     train_step_counter = num_steps % config['train_steps']
     if train_step_counter == 0:
         train_step_counter = config['train_steps']
 
-    # Train for num_iter checkpoint iterations
+    # Train for num_iter checkpoint iterations.
     obs, _ = train_env.reset(seed=env_seed)
     for checkpoint_iteration in range(
         start_iteration,
         start_iteration + num_iter,
     ):
         for _ in range(config['checkpoint_steps']):
-            # Take an epsilon-greedy action, append to replay buffer
+            # Take an epsilon-greedy action, append to replay buffer.
             action = epsilon_greedy(config, num_steps, policy_net, obs)
             next_obs, reward, is_term, is_trunc, _ = train_env.step(action)
             replay_buffer.append(Experience(
@@ -329,7 +329,7 @@ def deep_q(
                 obs, _ = train_env.reset()
             num_steps += 1
 
-            # Update policy (and target) every config['train_steps']
+            # Update policy (and target) every config['train_steps'].
             train_step_counter -= 1
             if train_step_counter == 0:
                 train_step_counter = config['train_steps']
@@ -342,7 +342,7 @@ def deep_q(
                     device if not map_replay_buffer else None,
                 )
                 eval_hist.append(eval_net(config, policy_net, eval_env))
-        # Save new checkpoint
+        # Save new checkpoint.
         save_checkpoint(
             checkpoint_path(config, checkpoint_iteration).joinpath(name),
             Checkpoint(
@@ -355,7 +355,7 @@ def deep_q(
             ),
         )
 
-        # Communicate checkpoint completion to parent process
+        # Communicate checkpoint completion to parent process.
         if mp_barrier is not None:
             mp_barrier.wait()
 
@@ -365,7 +365,7 @@ def init(
     rank: int,
     device: torch.device,
 ) -> None:
-    # All optimizers start with the same initial nets
+    # All optimizers start with the same initial nets.
     policy_net = QNet(OBS_SHAPE, NUM_ACTIONS).to(device)
     target_net_state_dict = QNet(OBS_SHAPE, NUM_ACTIONS).state_dict()
     initial_eval = eval_net(
@@ -378,7 +378,7 @@ def init(
         ),
     )
 
-    # Create checkpoints for each optimizer type
+    # Create checkpoints for each optimizer type.
     path = checkpoint_path(config, 0)
     for optim_rank, optim_config in enumerate(config['optimizers']):
         optimizer_state_dict = (
@@ -403,7 +403,7 @@ class Args(argparse.Namespace):
     num_iterations: int
     start_iteration: int
     parallel: bool
-    clobber: bool
+    # clobber: bool
     remove_checkpoints: bool
 
 
@@ -428,7 +428,7 @@ def rr_assign(
 
 
 if __name__ == '__main__':
-    # Parse CLI arguments
+    # Parse CLI arguments.
     parser = argparse.ArgumentParser()
     parser.add_argument(
         'config_file',
@@ -470,22 +470,25 @@ if __name__ == '__main__':
     )
     args = parser.parse_args(namespace=Args)
 
-    # Parse config file
+    # Parse config file.
     logger.debug('Parsing config file')
     config = Config(**json.load(args.config_file))
 
-    # Find the latest checkpoint if the start iteration is -1
+    # Find the latest checkpoint if the start iteration is -1.
     if args.start_iteration == -1:
         logger.debug('Starting after most recent checkpoint',
                      args.start_iteration)
         args.start_iteration = latest_checkpoint_iteration(config) + 1
 
-    # Determine CUDA availability
+    # Determine CUDA availability.
     if args.parallel:
         devices = (
-            (torch.device('cuda', i) for i in range(torch.cuda.device_count()))
+            itertools.cycle(
+                torch.device('cuda', i)
+                for i in range(torch.cuda.device_count())
+            )
             if torch.cuda.is_available()
-            else (torch.device('cpu'),)
+            else itertools.repeat(torch.device('cpu'))
         )
     else:
         device = (
@@ -494,12 +497,13 @@ if __name__ == '__main__':
             else torch.device('cpu')
         )
 
-    # Initialize if the start iteration is 0
+    # Initialize if the start iteration is 0.
     if args.start_iteration == 0:
         args.start_iteration += 1
         logger.info('Creating initial models for configuration %s',
                     config['name'])
         if args.parallel:
+            # Initialize ranks in parallel.
             workers: list[mp.Process] = []
             for rank, device in zip(
                 range(config['num_models']),
@@ -516,18 +520,51 @@ if __name__ == '__main__':
                 proc.join()
                 proc.close()
         else:
+            # Initialize ranks sequentially.
             for rank in range(config['num_models']):
                 init(config, rank, device)
         checkpoint_path(config, 0).joinpath('COMPLETE').touch()
 
-    # Begin training
+    # Begin training.
     if args.parallel:
-        pass
-    else:
-        for checkpoint_iteration in range(
-            args.start_iteration,
-            args.start_iteration + args.num_iterations,
-        ):
+        # Initialize training workers.
+        barrier = mp.Barrier(
+            1 + config['num_models'] * len(config['optimizers']),
+        )
+        workers: list[mp.Process] = []
+        devices_iter = iter(devices)
+        for rank in range(config['num_models']):
+            seed = time.time_ns()
+            for optim_rank in range(len(config['optimizers'])):
+                proc = mp.Process(
+                    target=deep_q,
+                    name='train-worker-{}-{}'.format(rank, optim_rank),
+                    args=(
+                        config,
+                        rank,
+                        optim_rank,
+                        args.start_iteration,
+                        next(devices_iter),
+                        seed,
+                        args.num_iterations,
+                    ),
+                    kwargs={
+                        'mp_barrier': barrier,
+                    },
+                )
+                proc.start()
+                workers.append(proc)
+    
+    # Train for args.num_iterations
+    for checkpoint_iteration in range(
+        args.start_iteration,
+        args.start_iteration + args.num_iterations,
+    ):
+        if args.parallel:
+            # Wait for training to complete in parallel.
+            barrier.wait()
+        else:
+            # Train each net sequentially.
             for rank in range(config['num_models']):
                 seed = time.time_ns()
                 for optim_rank in range(len(config['optimizers'])):
@@ -539,7 +576,16 @@ if __name__ == '__main__':
                         device,
                         seed,
                     )
-            if args.remove_checkpoints:
-                prev_path = checkpoint_path(config, checkpoint_iteration - 1)
-                if prev_path.exists():
-                    os.removedirs(prev_path)
+        # Mark checkpoint as completed.
+        checkpoint_path(config, checkpoint_iteration) \
+            .joinpath('COMPLETE').touch()
+        if args.remove_checkpoints:
+            prev_path = checkpoint_path(config, checkpoint_iteration - 1)
+            if prev_path.exists():
+                os.removedirs(prev_path)
+    
+    if args.parallel:
+        # Terminate training workers.
+        for proc in workers:
+            proc.join()
+            proc.close()

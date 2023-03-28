@@ -15,23 +15,25 @@ import multiprocessing as mp
 import os
 import pathlib
 import random
+import shutil
 import time
 import typing
 from collections import deque
+from multiprocessing.synchronize import Barrier
 
 import gymnasium as gym
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch_wrapper import TorchWrapper
 
 from net import QNet
+from torch_wrapper import TorchWrapper
 
 logging.basicConfig(
     format='%(asctime)s %(filename)s [%(levelname)s]: %(message)s',
 )
 logger = logging.getLogger(__file__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 OBS_SHAPE = 4
 NUM_ACTIONS = 2
@@ -114,12 +116,12 @@ def checkpoint_path(config: Config, iteration: int) -> pathlib.Path:
 
 
 def checkpoint_name(rank: int, optim_rank: int) -> pathlib.Path:
-    return pathlib.Path('{}_{}.pt'.format(rank, optim_rank))
+    return pathlib.Path('{:03d}_{:02d}.pt'.format(rank, optim_rank))
 
 
 def latest_checkpoint_iteration(config: Config) -> int:
     iteration = -1
-    glob_pattern = 'checkpoint_{}_iter_*.pt'.format(config['name'])
+    glob_pattern = 'checkpoint_{}_iter_*'.format(config['name'])
     checkpoint_dir = pathlib.Path(config['checkpoint_dir'])
     if checkpoint_dir.exists():
         for checkpoint_path in checkpoint_dir.iterdir():
@@ -136,7 +138,7 @@ def init_optim(
     net: QNet,
 ) -> optim.Optimizer:
     match config['optim_type']:
-        case [RMS_PROP]:
+        case OptimType.RMS_PROP:
             return optim.RMSprop(
                 net.parameters(),
                 config.get('lr'),
@@ -146,7 +148,7 @@ def init_optim(
                 config.get('rms_momentum'),
                 config.get('rms_centered'),
             )
-        case [ADAM]:
+        case OptimType.ADAM:
             return optim.Adam(
                 net.parameters(),
                 config.get('lr'),
@@ -155,7 +157,7 @@ def init_optim(
                 config.get('weight_decay'),
                 config.get('adam_amsgrad'),
             )
-        case [R_ADAM]:
+        case OptimType.R_ADAM:
             return optim.RAdam(
                 net.parameters(),
                 config.get('lr'),
@@ -183,7 +185,7 @@ def epsilon_greedy(
     net.eval()
     with torch.no_grad():
         q_values = net(obs)
-    return torch.argmax(q_values)
+    return torch.argmax(q_values).item()
 
 
 def train_net(
@@ -198,28 +200,28 @@ def train_net(
     target_net.eval()
 
     # Get batch for training from replay buffer.
-    states, actions, rewards, next_states = zip(*random.sample(
+    states, actions, rewards, next_states = *zip(*random.sample(
         replay_buffer,
         config['batch_size'],
     )),
     states = torch.stack(states)
     if device is not None:
         states = states.to(device)
-    actions = states.new_tensor(actions, torch.long).unsqueeze(0)
+    actions = states.new_tensor(actions, dtype=torch.long).unsqueeze(-1)
     rewards = states.new_tensor(rewards)
     next_states_mask = states.new_tensor(
         tuple(s is not None for s in next_states),
-        torch.bool,
+        dtype=torch.bool,
     )
     next_states = torch.stack(tuple(s for s in next_states if s is not None))
     if device is not None:
         next_states = next_states.to(device)
 
     # Backpropagation.
-    pred_q = policy_net(states).gather(1, actions).squeeze(1)
+    pred_q = policy_net(states).gather(1, actions).squeeze(-1)
     next_v = torch.zeros_like(pred_q)
     with torch.no_grad():
-        next_v[next_states_mask] = target_net(next_states).max(1)[0]
+        next_v[next_states_mask] = target_net(next_states).max(-1)[0]
     target_q = next_v * config['q_gamma'] + rewards
     criterion = nn.SmoothL1Loss()
     loss = criterion(pred_q, target_q)
@@ -266,7 +268,7 @@ def deep_q(
     num_iter: int = 1,
     *,
     map_replay_buffer: bool = True,
-    mp_barrier: mp.Barrier | None = None,
+    mp_barrier: Barrier | None = None,
 ) -> None:
     name = checkpoint_name(rank, optim_rank)
     # Load previous checkpoint.
@@ -473,13 +475,14 @@ if __name__ == '__main__':
 
     # Parse config file.
     logger.debug('Parsing config file')
-    config = Config(**json.load(args.config_file))
+    with open(args.config_file) as f:
+        config = Config(**json.load(f))
 
     # Find the latest checkpoint if the start iteration is -1.
     if args.start_iteration == -1:
-        logger.debug('Starting after most recent checkpoint',
-                     args.start_iteration)
         args.start_iteration = latest_checkpoint_iteration(config) + 1
+        logger.debug('Starting after most recent checkpoint (iteration %d)',
+                     args.start_iteration)
 
     # Determine CUDA availability.
     if args.parallel:
@@ -523,6 +526,7 @@ if __name__ == '__main__':
         else:
             # Initialize ranks sequentially.
             for rank in range(config['num_models']):
+                logger.debug('Initializing rank %d', rank)
                 init(config, rank, device)
         checkpoint_path(config, 0).joinpath('COMPLETE').touch()
 
@@ -555,12 +559,14 @@ if __name__ == '__main__':
                 )
                 proc.start()
                 workers.append(proc)
-    
+
     # Train for args.num_iterations
     for checkpoint_iteration in range(
         args.start_iteration,
         args.start_iteration + args.num_iterations,
     ):
+        logger.debug('Training checkpoint iteration %d for configuration %s',
+                     checkpoint_iteration, config['name'])
         if args.parallel:
             # Wait for training to complete in parallel.
             barrier.wait()
@@ -569,6 +575,8 @@ if __name__ == '__main__':
             for rank in range(config['num_models']):
                 seed = time.time_ns()
                 for optim_rank in range(len(config['optimizers'])):
+                    logger.debug('Training rank %d optim rank %d',
+                                 rank, optim_rank)
                     deep_q(
                         config,
                         rank,
@@ -583,8 +591,10 @@ if __name__ == '__main__':
         if args.remove_checkpoints:
             prev_path = checkpoint_path(config, checkpoint_iteration - 1)
             if prev_path.exists():
-                os.removedirs(prev_path)
-    
+                logger.debug('Removing checkpoint iteration %d',
+                             checkpoint_iteration - 1)
+                shutil.rmtree(prev_path)
+
     if args.parallel:
         # Terminate training workers.
         for proc in workers:

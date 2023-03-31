@@ -15,6 +15,7 @@
     "checkpoint_steps": 1000,
     "optimizers": [
         {
+            "name": "RMSProp",
             "optim_type": "rms_prop",
             "lr": 1e-4,
             "eps": 1e-8,
@@ -24,6 +25,7 @@
             "rms_centered": false
         },
         {
+            "name": "ADAM",
             "optim_type": "adam",
             "lr": 1e-4,
             "eps": 1e-8,

@@ -7,13 +7,10 @@ Created on 3/17/2023 by Steven Laverty (lavers@rpi.edu).
 '''
 
 import argparse
-import enum
 import itertools
 import json
 import logging
 import multiprocessing as mp
-import os
-import pathlib
 import random
 import shutil
 import time
@@ -28,109 +25,16 @@ import torch.optim as optim
 
 from net import QNet
 from torch_wrapper import TorchWrapper
+from utils import (NUM_ACTIONS, OBS_SHAPE, Checkpoint, Config, Experience,
+                   OptimConfig, OptimType, checkpoint_name, checkpoint_path,
+                   latest_checkpoint_iteration, load_checkpoint,
+                   save_checkpoint)
 
 logging.basicConfig(
     format='%(asctime)s %(filename)s [%(levelname)s]: %(message)s',
 )
 logger = logging.getLogger(__file__)
 logger.setLevel(logging.DEBUG)
-
-OBS_SHAPE = 4
-NUM_ACTIONS = 2
-
-
-class OptimType(str, enum.Enum):
-    RMS_PROP = 'rms_prop'
-    ADAM = 'adam'
-    R_ADAM = 'r_adam'
-    ADAM_W = 'adam_w'
-
-
-class OptimConfig(typing.TypedDict, total=False):
-    optim_type: OptimType
-    lr: float
-    eps: float
-    weight_decay: float
-    rms_alpha: float
-    rms_momentum: float
-    rms_centered: bool
-    adam_betas: tuple[float, float]
-    adam_amsgrad: bool
-
-
-class Config(typing.TypedDict):
-    name: str
-    checkpoint_dir: str
-    num_models: int
-    q_lr: float
-    q_gamma: float
-    q_epsilon_max: float
-    q_epsilon_min: float
-    q_epsilon_decay: float
-    q_replay_buf_len: int
-    q_target_update_tau: float
-    train_steps: int
-    batch_size: int
-    num_eval: int
-    checkpoint_steps: int
-    optimizers: list[OptimConfig]
-
-
-class Experience(typing.NamedTuple):
-    state: torch.Tensor
-    action: int
-    reward: float
-    next_state: torch.Tensor | None
-
-
-class Checkpoint(typing.NamedTuple):
-    num_steps: int
-    policy_net_state_dict: dict
-    target_net_state_dict: dict
-    optimizer_state_dict: dict
-    replay_buffer: deque[Experience]
-    eval_hist: list[float]
-
-
-def save_checkpoint(
-    file: str | bytes | os.PathLike | typing.BinaryIO,
-    checkpoint: Checkpoint,
-) -> None:
-    if isinstance(file, (str, bytes, os.PathLike)):
-        dirname = os.path.dirname(file)
-        if not os.path.exists(dirname):
-            os.makedirs(dirname)
-    torch.save(checkpoint, file)
-
-
-def load_checkpoint(
-    file: str | os.PathLike | typing.BinaryIO | typing.IO[bytes],
-    device: torch.device = 'cpu',
-) -> Checkpoint:
-    return torch.load(file, map_location=device)
-
-
-def checkpoint_path(config: Config, iteration: int) -> pathlib.Path:
-    name = 'checkpoint_{}_iter_{:04d}'.format(config['name'], iteration)
-    return pathlib.Path(config['checkpoint_dir']).joinpath(name)
-
-
-def checkpoint_name(rank: int, optim_rank: int) -> pathlib.Path:
-    return pathlib.Path('{:03d}_{:02d}.pt'.format(rank, optim_rank))
-
-
-def latest_checkpoint_iteration(config: Config) -> int:
-    iteration = -1
-    glob_pattern = 'checkpoint_{}_iter_*'.format(config['name'])
-    checkpoint_dir = pathlib.Path(config['checkpoint_dir'])
-    if checkpoint_dir.exists():
-        for checkpoint_path in checkpoint_dir.iterdir():
-            if (
-                checkpoint_path.match(glob_pattern)
-                and checkpoint_path.joinpath('COMPLETE').exists()
-            ):
-                iteration = max(int(checkpoint_path.name[-4:]), iteration)
-    return iteration
 
 
 def init_optim(
@@ -247,7 +151,7 @@ def eval_net(
         total_rewards = []
         for _ in range(config['num_eval']):
             obs, _ = env.reset()
-            total_reward = 0
+            total_reward = 0.0
             is_term = is_trunc = False
             while not is_term and not is_trunc:
                 action = torch.argmax(net(obs)).item()
@@ -400,14 +304,6 @@ def init(
         )
 
 
-class Args(argparse.Namespace):
-    config_file: str
-    num_iterations: int
-    start_iteration: int
-    parallel: bool
-    remove_checkpoints: bool
-
-
 def rr_assign(
     func: typing.Callable,
     args: list,
@@ -430,6 +326,12 @@ def rr_assign(
 
 if __name__ == '__main__':
     # Parse CLI arguments.
+    class Args(argparse.Namespace):
+        config_file: str
+        num_iterations: int
+        start_iteration: int
+        parallel: bool
+        remove_checkpoints: bool
     parser = argparse.ArgumentParser()
     parser.add_argument(
         'config_file',

@@ -27,7 +27,6 @@ logger.setLevel(logging.DEBUG)
 
 def plot_loss(config: Config, iteration: int):
     path = checkpoint_path(config, iteration)
-    print(path)
     if not path.joinpath('COMPLETE').exists():
         raise ValueError('Invalid checkpoint. Checkpoint {} is incomplete'.format(iteration))
     # shape=(len(optimizers),num_models,num_train_iter)
@@ -39,9 +38,14 @@ def plot_loss(config: Config, iteration: int):
         for optim_rank in range(len(config['optimizers']))
     ])
     mean_loss = loss_history.mean(axis=1)
-    confidence_bound_lower = np.quantile(loss_history, 0.025, axis=1)
-    confidence_bound_upper = np.quantile(loss_history, 0.975, axis=1)
-    iterations = np.arange(loss_history.shape[-1]) * config['train_steps']
+    confidence_bound_lower = np.quantile(loss_history, 0.25, axis=1)
+    confidence_bound_upper = np.quantile(loss_history, 0.75, axis=1)
+    # Get moving averages
+    window_size = 19
+    mean_loss = [np.convolve(x, np.ones(window_size), 'valid') / window_size for x in mean_loss]
+    confidence_bound_lower = [np.convolve(x, np.ones(window_size), 'valid') / window_size for x in confidence_bound_lower]
+    confidence_bound_upper = [np.convolve(x, np.ones(window_size), 'valid') / window_size for x in confidence_bound_upper]
+    iterations = np.arange(window_size // 2, (loss_history.shape[-1] - (window_size - 1) // 2)) * config['train_steps']
     plt.figure(figsize=(7,5))
     for mean_loss_i, lower_i, upper_i, name in zip(
         mean_loss,
@@ -52,6 +56,9 @@ def plot_loss(config: Config, iteration: int):
         plt.fill_between(iterations, lower_i, upper_i, alpha=0.2)
         plt.plot(iterations, mean_loss_i, label=name)
     plt.legend()
+    plt.title('Car-pole performance by optimization algorithm')
+    plt.xlabel('Total steps')
+    plt.ylabel('Average duration')
     plt.show()
 
 if __name__ == '__main__':

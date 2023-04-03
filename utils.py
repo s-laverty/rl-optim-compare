@@ -77,7 +77,7 @@ def save_checkpoint(
     if isinstance(file, (str, bytes, os.PathLike)):
         dirname = os.path.dirname(file)
         if not os.path.exists(dirname):
-            os.makedirs(dirname)
+            os.makedirs(dirname, exist_ok=True)
     torch.save(checkpoint, file)
 
 

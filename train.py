@@ -99,8 +99,8 @@ def train_net(
     replay_buffer: deque[Experience],
     device: torch.device | None = None,
 ) -> None:
-    policy_net.train()
-    target_net.eval()
+    if len(replay_buffer) < config['batch_size']:
+        return
 
     # Get batch for training from replay buffer.
     states, actions, rewards, next_states = *zip(*random.sample(
@@ -121,11 +121,16 @@ def train_net(
         next_states = next_states.to(device)
 
     # Backpropagation.
+    policy_net.train()
+    target_net.eval()
     pred_q = policy_net(states).gather(1, actions).squeeze(-1)
     next_v = torch.zeros_like(pred_q)
     with torch.no_grad():
         next_v[next_states_mask] = target_net(next_states).max(-1)[0]
-    target_q = next_v * config['q_gamma'] + rewards
+    target_q = (
+        pred_q * (1 - config['q_lr'])
+        + (next_v * config['q_gamma'] + rewards) * config['q_lr']
+    )
     criterion = nn.SmoothL1Loss()
     loss = criterion(pred_q, target_q)
     optimizer.zero_grad()
@@ -139,6 +144,7 @@ def train_net(
         target_net_state_dict[key] += config['q_target_update_tau'] * (
             policy_net_state_dict[key] - target_net_state_dict[key]
         )
+    target_net.load_state_dict(target_net_state_dict)
 
 
 def eval_net(
@@ -230,9 +236,10 @@ def deep_q(
                 reward,
                 next_obs if not is_term else None,
             ))
-            obs = next_obs
             if is_term or is_trunc:
                 obs, _ = train_env.reset()
+            else:
+                obs = next_obs
             num_steps += 1
 
             # Update policy (and target) every config['train_steps'].
@@ -272,11 +279,10 @@ def init(
     device: torch.device,
 ) -> None:
     # All optimizers start with the same initial nets.
-    policy_net = QNet(OBS_SHAPE, NUM_ACTIONS).to(device)
-    target_net_state_dict = QNet(OBS_SHAPE, NUM_ACTIONS).state_dict()
+    initial_net = QNet(OBS_SHAPE, NUM_ACTIONS).to(device)
     initial_eval = eval_net(
         config,
-        policy_net,
+        initial_net,
         TorchWrapper(
             gym.make('CartPole-v1'),
             device=device,
@@ -288,15 +294,15 @@ def init(
     path = checkpoint_path(config, 0)
     for optim_rank, optim_config in enumerate(config['optimizers']):
         optimizer_state_dict = (
-            init_optim(optim_config, policy_net).state_dict()
+            init_optim(optim_config, initial_net).state_dict()
         )
         replay_buffer = deque(maxlen=config['q_replay_buf_len'])
         save_checkpoint(
             path.joinpath(checkpoint_name(rank, optim_rank)),
             Checkpoint(
                 0,
-                policy_net.state_dict(),
-                target_net_state_dict,
+                initial_net.state_dict(),
+                initial_net.state_dict(),
                 optimizer_state_dict,
                 replay_buffer,
                 [initial_eval],

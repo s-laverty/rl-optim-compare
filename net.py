@@ -14,13 +14,12 @@ class QNet(nn.Module):
         num_actions: int,
         *,
         scaler: nn.Module | None = None,
-        num_layers: int=6,
-        hidden_dim: int=32,
+        num_layers: int=1,
+        hidden_dim: int=128,
     ) -> None:
         super().__init__()
-        self.encoder_relu = nn.ReLU()
-
         self.scaler = scaler
+
         self.encoder = nn.Linear(state_dim, hidden_dim)
         self.encoder_relu = nn.ReLU()
         self.hidden_stack = nn.ModuleList(

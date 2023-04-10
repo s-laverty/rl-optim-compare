@@ -1,6 +1,8 @@
 {
     "name": "test-0",
     "checkpoint_dir": "checkpoints",
+    "hidden_layers": 1,
+    "hidden_dim": 128,
     "num_models": 10,
     "q_lr": 1.0,
     "q_gamma": 0.99,

@@ -41,10 +41,22 @@ def init_optim(
     config: OptimConfig,
     net: QNet,
 ) -> optim.Optimizer:
+    decay_parms = []
+    no_decay_params = []
+    for name, param in net.named_parameters():
+        if name == 'decoder.bias':
+            no_decay_params.append(param)
+        else:
+            decay_parms.append(param)
+    param_groups = [
+        {'params': decay_parms},
+        {'params': no_decay_params, 'weight_decay': 0},
+    ]
+    # param_groups = net.parameters()
     match config['optim_type']:
         case OptimType.RMS_PROP:
             return optim.RMSprop(
-                net.parameters(),
+                param_groups,
                 config.get('lr'),
                 config.get('rms_alpha'),
                 config.get('eps'),
@@ -54,7 +66,7 @@ def init_optim(
             )
         case OptimType.ADAM:
             return optim.Adam(
-                net.parameters(),
+                param_groups,
                 config.get('lr'),
                 config.get('adam_betas'),
                 config.get('eps'),
@@ -63,11 +75,20 @@ def init_optim(
             )
         case OptimType.R_ADAM:
             return optim.RAdam(
-                net.parameters(),
+                param_groups,
                 config.get('lr'),
                 config.get('adam_betas'),
                 config.get('eps'),
                 config.get('weight_decay'),
+            )
+        case OptimType.ADAM_W:
+            return optim.AdamW(
+                param_groups,
+                config.get('lr'),
+                config.get('adam_betas'),
+                config.get('eps'),
+                config.get('weight_decay'),
+                config.get('adam_amsgrad'),
             )
         case _:
             raise ValueError(
@@ -194,8 +215,18 @@ def deep_q(
     )
 
     # Initialize neural nets.
-    policy_net = QNet(OBS_SHAPE, NUM_ACTIONS)
-    target_net = QNet(OBS_SHAPE, NUM_ACTIONS)
+    policy_net = QNet(
+        OBS_SHAPE,
+        NUM_ACTIONS,
+        num_layers=config['hidden_layers'],
+        hidden_dim=config['hidden_dim'],
+    )
+    target_net = QNet(
+        OBS_SHAPE,
+        NUM_ACTIONS,
+        num_layers=config['hidden_layers'],
+        hidden_dim=config['hidden_dim'],
+    )
     policy_net.load_state_dict(policy_net_state_dict)
     target_net.load_state_dict(target_net_state_dict)
     if not map_replay_buffer:
@@ -222,6 +253,7 @@ def deep_q(
 
     # Train for num_iter checkpoint iterations.
     obs, _ = train_env.reset(seed=env_seed)
+    episode_len = 0
     for checkpoint_iteration in range(
         start_iteration,
         start_iteration + num_iter,
@@ -236,8 +268,11 @@ def deep_q(
                 reward,
                 next_obs if not is_term else None,
             ))
+            episode_len += 1
             if is_term or is_trunc:
                 obs, _ = train_env.reset()
+                logger.debug('Episode length: %d', episode_len)
+                episode_len = 0
             else:
                 obs = next_obs
             num_steps += 1
@@ -279,7 +314,12 @@ def init(
     device: torch.device,
 ) -> None:
     # All optimizers start with the same initial nets.
-    initial_net = QNet(OBS_SHAPE, NUM_ACTIONS).to(device)
+    initial_net = QNet(
+        OBS_SHAPE,
+        NUM_ACTIONS,
+        num_layers=config['hidden_layers'],
+        hidden_dim=config['hidden_dim'],
+    ).to(device)
     initial_eval = eval_net(
         config,
         initial_net,

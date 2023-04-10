@@ -39,6 +39,8 @@ class OptimConfig(typing.TypedDict, total=False):
 class Config(typing.TypedDict):
     name: str
     checkpoint_dir: str
+    hidden_layers: int
+    hidden_dim: int
     num_models: int
     q_lr: float
     q_gamma: float

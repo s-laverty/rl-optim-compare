@@ -6,6 +6,7 @@ Created on 3/17/2023 by Steven Laverty (lavers@rpi.edu).
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 class QNet(nn.Module):
     def __init__(
@@ -21,12 +22,8 @@ class QNet(nn.Module):
         self.scaler = scaler
 
         self.encoder = nn.Linear(state_dim, hidden_dim)
-        self.encoder_relu = nn.ReLU()
         self.hidden_stack = nn.ModuleList(
             nn.Linear(hidden_dim, hidden_dim) for _ in range(num_layers)
-        )
-        self.hidden_stack_relu = nn.ModuleList(
-            nn.ReLU() for _ in range(num_layers)
         )
         self.decoder = nn.Linear(hidden_dim, num_actions)
     
@@ -34,10 +31,10 @@ class QNet(nn.Module):
         if self.scaler is not None:
             x = self.scaler(x)
 
-        x = self.encoder_relu(self.encoder(x))
+        x = F.relu(self.encoder(x))
 
-        for linear, relu in zip(self.hidden_stack, self.hidden_stack_relu):
-            x = relu(linear(x))
+        for hidden in self.hidden_stack:
+            x = F.relu(hidden(x))
         
         q = self.decoder(x)
 

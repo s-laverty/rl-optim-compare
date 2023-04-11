@@ -1,0 +1,74 @@
+{
+    "name": "perf-results",
+    "checkpoint_dir": "checkpoints",
+    "hidden_layers": 3,
+    "hidden_dim": 128,
+    "num_models": 16,
+    "q_lr": 1.0,
+    "q_gamma": 0.9,
+    "q_epsilon_max": 0.9,
+    "q_epsilon_min": 0.05,
+    "q_epsilon_decay": 0.999,
+    "q_replay_buf_len": 2500,
+    "q_target_update_tau": 0.01,
+    "train_steps": 1,
+    "batch_size": 128,
+    "num_eval": 16,
+    "checkpoint_steps": 1000,
+    "optimizers": [
+        {
+            "name": "RMSProp",
+            "optim_type": "rms_prop",
+            "lr": 1e-4,
+            "eps": 1e-8,
+            "weight_decay": 1e-2,
+            "rms_alpha": 0.99,
+            "rms_momentum": 0,
+            "rms_centered": false
+        },
+        {
+            "name": "RMSProp with momentum",
+            "optim_type": "rms_prop",
+            "lr": 1e-4,
+            "eps": 1e-8,
+            "weight_decay": 1e-2,
+            "rms_alpha": 0.99,
+            "rms_momentum": 0.1,
+            "rms_centered": false
+        },
+        {
+            "name": "ADAM",
+            "optim_type": "adam",
+            "lr": 1e-4,
+            "eps": 1e-8,
+            "weight_decay": 1e-2,
+            "adam_betas": [0.9, 0.999],
+            "adam_amsgrad": true
+        },
+        {
+            "name": "ADAMAX",
+            "optim_type": "adamax",
+            "lr": 1e-4,
+            "eps": 1e-8,
+            "weight_decay": 1e-2,
+            "adam_betas": [0.9, 0.999]
+        },
+        {
+            "name": "ADAM W",
+            "optim_type": "adam_w",
+            "lr": 1e-4,
+            "eps": 1e-8,
+            "weight_decay": 1e-2,
+            "adam_betas": [0.9, 0.999],
+            "adam_amsgrad": true
+        },
+        {
+            "name": "R ADAM",
+            "optim_type": "r_adam",
+            "lr": 1e-4,
+            "eps": 1e-8,
+            "weight_decay": 1e-2,
+            "adam_betas": [0.9, 0.999]
+        }
+    ]
+}

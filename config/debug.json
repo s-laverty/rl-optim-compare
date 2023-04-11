@@ -1,19 +1,19 @@
 {
-    "name": "test-0",
+    "name": "debug",
     "checkpoint_dir": "checkpoints",
-    "hidden_layers": 1,
+    "hidden_layers": 3,
     "hidden_dim": 128,
-    "num_models": 10,
-    "q_lr": 1.0,
+    "num_models": 3,
+    "q_lr": 0.7,
     "q_gamma": 0.99,
     "q_epsilon_max": 0.9,
     "q_epsilon_min": 0.05,
     "q_epsilon_decay": 0.999,
-    "q_replay_buf_len": 10000,
+    "q_replay_buf_len": 2000,
     "q_target_update_tau": 0.01,
-    "train_steps": 10,
-    "batch_size": 1024,
-    "num_eval": 10,
+    "train_steps": 15,
+    "batch_size": 128,
+    "num_eval": 3,
     "checkpoint_steps": 1000,
     "optimizers": [
         {
@@ -29,6 +29,24 @@
         {
             "name": "ADAM",
             "optim_type": "adam",
+            "lr": 1e-2,
+            "eps": 1e-8,
+            "weight_decay": 0,
+            "adam_betas": [0.9, 0.999],
+            "adam_amsgrad": true
+        },
+        {
+            "name": "ADAM W",
+            "optim_type": "adam_w",
+            "lr": 1e-2,
+            "eps": 1e-8,
+            "weight_decay": 0,
+            "adam_betas": [0.9, 0.999],
+            "adam_amsgrad": true
+        },
+        {
+            "name": "R ADAM",
+            "optim_type": "r_adam",
             "lr": 1e-2,
             "eps": 1e-8,
             "weight_decay": 0,

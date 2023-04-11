@@ -1,5 +1,5 @@
 {
-    "name": "test-1",
+    "name": "tune-params",
     "checkpoint_dir": "checkpoints",
     "hidden_layers": 3,
     "hidden_dim": 128,
@@ -12,18 +12,17 @@
     "q_replay_buf_len": 2500,
     "q_target_update_tau": 0.01,
     "train_steps": 1,
-    "batch_size": 256,
+    "batch_size": 128,
     "num_eval": 1,
     "checkpoint_steps": 1000,
     "optimizers": [
         {
-            "name": "ADAM W",
-            "optim_type": "adam_w",
+            "name": "R ADAM",
+            "optim_type": "r_adam",
             "lr": 1e-4,
             "eps": 1e-8,
             "weight_decay": 1e-2,
-            "adam_betas": [0.9, 0.999],
-            "adam_amsgrad": true
+            "adam_betas": [0.9, 0.999]
         }
     ]
 }

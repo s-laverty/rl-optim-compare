@@ -19,8 +19,9 @@ NUM_ACTIONS = 2
 class OptimType(str, enum.Enum):
     RMS_PROP = 'rms_prop'
     ADAM = 'adam'
-    R_ADAM = 'r_adam'
+    ADAMAX = 'adamax'
     ADAM_W = 'adam_w'
+    R_ADAM = 'r_adam'
 
 
 class OptimConfig(typing.TypedDict, total=False):
@@ -70,6 +71,7 @@ class Checkpoint(typing.NamedTuple):
     optimizer_state_dict: dict
     replay_buffer: deque[Experience]
     eval_hist: list[float]
+    best_policy_net_state_dict: dict
 
 
 def save_checkpoint(

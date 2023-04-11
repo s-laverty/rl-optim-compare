@@ -34,7 +34,7 @@ logging.basicConfig(
     format='%(asctime)s %(filename)s [%(levelname)s]: %(message)s',
 )
 logger = logging.getLogger(__file__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
 def init_optim(
@@ -52,7 +52,6 @@ def init_optim(
         {'params': decay_parms},
         {'params': no_decay_params, 'weight_decay': 0},
     ]
-    # param_groups = net.parameters()
     match config['optim_type']:
         case OptimType.RMS_PROP:
             return optim.RMSprop(
@@ -73,8 +72,8 @@ def init_optim(
                 config.get('weight_decay'),
                 config.get('adam_amsgrad'),
             )
-        case OptimType.R_ADAM:
-            return optim.RAdam(
+        case OptimType.ADAMAX:
+            return optim.Adamax(
                 param_groups,
                 config.get('lr'),
                 config.get('adam_betas'),
@@ -89,6 +88,14 @@ def init_optim(
                 config.get('eps'),
                 config.get('weight_decay'),
                 config.get('adam_amsgrad'),
+            )
+        case OptimType.R_ADAM:
+            return optim.RAdam(
+                param_groups,
+                config.get('lr'),
+                config.get('adam_betas'),
+                config.get('eps'),
+                config.get('weight_decay'),
             )
         case _:
             raise ValueError(
@@ -209,10 +216,12 @@ def deep_q(
         optimizer_state_dict,
         replay_buffer,
         eval_hist,
+        best_state_dict,
     ) = load_checkpoint(
         checkpoint_path(config, start_iteration - 1).joinpath(name),
         device if map_replay_buffer else 'cpu',
     )
+    best_eval = max(eval_hist)
 
     # Initialize neural nets.
     policy_net = QNet(
@@ -290,6 +299,10 @@ def deep_q(
                     device if not map_replay_buffer else None,
                 )
                 eval_hist.append(eval_net(config, policy_net, eval_env))
+                if eval_hist[-1] > best_eval:
+                    best_eval = eval_hist[-1]
+                    best_state_dict = policy_net.state_dict()
+
         # Save new checkpoint.
         save_checkpoint(
             checkpoint_path(config, checkpoint_iteration).joinpath(name),
@@ -300,6 +313,7 @@ def deep_q(
                 optimizer.state_dict(),
                 replay_buffer,
                 eval_hist,
+                best_state_dict,
             ),
         )
 
@@ -346,6 +360,7 @@ def init(
                 optimizer_state_dict,
                 replay_buffer,
                 [initial_eval],
+                initial_net.state_dict(),
             )
         )
 
@@ -414,14 +429,14 @@ if __name__ == '__main__':
     args = parser.parse_args(namespace=Args)
 
     # Parse config file.
-    logger.debug('Parsing config file')
+    logger.info('Parsing config file')
     with open(args.config_file) as f:
         config = Config(**json.load(f))
 
     # Find the latest checkpoint if the start iteration is -1.
     if args.start_iteration == -1:
         args.start_iteration = latest_checkpoint_iteration(config) + 1
-        logger.debug('Starting after most recent checkpoint (iteration %d)',
+        logger.info('Starting after most recent checkpoint (iteration %d)',
                      args.start_iteration)
 
     # Determine CUDA availability.
@@ -505,7 +520,7 @@ if __name__ == '__main__':
         args.start_iteration,
         args.start_iteration + args.num_iterations,
     ):
-        logger.debug('Training checkpoint iteration %d for configuration %s',
+        logger.info('Training checkpoint iteration %d for configuration %s',
                      checkpoint_iteration, config['name'])
         if args.parallel:
             # Wait for training to complete in parallel.

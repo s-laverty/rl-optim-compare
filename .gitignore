@@ -1,5 +1,6 @@
-# Checkpoints
+# Checkpoints and results
 checkpoints/
+*.png
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

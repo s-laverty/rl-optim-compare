@@ -156,5 +156,5 @@ if __name__ == '__main__':
         anim.save(
             args.out_file,
             writer='ffmpeg',
-            fps=60,
+            fps=30,
         )

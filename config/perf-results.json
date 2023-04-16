@@ -37,7 +37,7 @@
             "rms_centered": false
         },
         {
-            "name": "ADAM",
+            "name": "Adam",
             "optim_type": "adam",
             "lr": 1e-4,
             "eps": 1e-8,
@@ -46,7 +46,7 @@
             "adam_amsgrad": true
         },
         {
-            "name": "ADAMAX",
+            "name": "AdaMax",
             "optim_type": "adamax",
             "lr": 1e-4,
             "eps": 1e-8,
@@ -54,7 +54,7 @@
             "adam_betas": [0.9, 0.999]
         },
         {
-            "name": "ADAM W",
+            "name": "AdamW",
             "optim_type": "adam_w",
             "lr": 1e-4,
             "eps": 1e-8,
@@ -63,7 +63,7 @@
             "adam_amsgrad": true
         },
         {
-            "name": "R ADAM",
+            "name": "RAdam",
             "optim_type": "r_adam",
             "lr": 1e-4,
             "eps": 1e-8,

@@ -3,6 +3,10 @@ checkpoints/
 *.png
 *.mp4
 *.gif
+*.txt
+
+# Images
+!img/*.gif
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

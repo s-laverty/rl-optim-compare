@@ -71,8 +71,8 @@ def plot_loss(
         plt.plot(iterations, mean_loss_i, label=name)
     plt.legend()
     plt.title('Cart-pole performance by optimization algorithm')
-    plt.xlabel('Total steps')
-    plt.ylabel('Average duration')
+    plt.xlabel('Total training steps')
+    plt.ylabel('Average episode length')
     plt.show()
 
 

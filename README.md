@@ -1,7 +1,7 @@
 # RL Optimizer Comparison
 Empirical comparison of Adaptive Gradient Methods for deep Q learning in the cart-pole environment.
 
-This research project is authored by [Steven Laverty](mailto:lavers@rpi.edu), [Muhammad Khan](mailto:khanm7@rpi.edu) and [Adrian Gillerman](gillea2@rpi.edu). See our [paper](reports/final-report.pdf) in `resources/`. Our results from training using `config/perf-results.json` are available in `data/checkpoints.zip`.
+This research project is authored by [Steven Laverty](mailto:lavers@rpi.edu), [Muhammad Khan](mailto:khanm7@rpi.edu) and [Adrian Gillerman](gillea2@rpi.edu). See our [paper](reports/final-report.pdf) in `reports/`. Our results from training using `config/perf-results.json` are available in `data/checkpoints.zip`.
 
 Adam | AdamW
 :--: | :--:
